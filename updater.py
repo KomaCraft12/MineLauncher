@@ -14,12 +14,17 @@ class Database():
 
     def __init__(self):
         pass
-
+    def alternative_connect(self):
+        try:
+            self.conn = mysql.connect(host="komacloud.asuscomm.com",user="jano",password="Katica.bogar2002",database="mclauncher")
+        except mysql.Error as err:
+            print(err)
     def connect(self):
         try:
             self.conn = mysql.connect(host="komacloud.synology.me",user="jano",password="Katica.bogar2002",database="mclauncher")
         except mysql.Error as err:
             print(err)
+            self.alternative_connect()
     def disconnect(self):
         self.conn.close()
     def getTable(self,sql):
@@ -40,8 +45,14 @@ class Database():
         self.disconnect()
         return lastid
 
-    def update(self):
-        pass
+    def update(self,sql,data):
+        self.connect()
+        cursor = self.conn.cursor()
+        cursor.execute(sql,data)
+        self.conn.commit()
+        cursor.close()
+        self.disconnect()
+        return True
 
 database = Database()
 
@@ -68,7 +79,7 @@ class MainWindow(customtkinter.CTk):
 
                 self.lastid = database.insert(
                     "INSERT INTO clients (`client_id`,`version`) VALUES (%(client_id)s, %(version)s)",
-                    {"client_id": self.json["client_id"], "version": 1})
+                    {"client_id": self.json["client_id"], "version": self.latest_version[0][1]})
                 self.json["id"] = self.lastid
                 self.json["version"] = self.latest_version[0][1]
 
@@ -77,7 +88,7 @@ class MainWindow(customtkinter.CTk):
             self.json = {}
             self.json["client_id"] = str(uuid.uuid4())
 
-            self.lastid = database.insert("INSERT INTO clients (`client_id`,`version`) VALUES (%(client_id)s, %(version)s)",{"client_id":self.json["client_id"],"version":1})
+            self.lastid = database.insert("INSERT INTO clients (`client_id`,`version`) VALUES (%(client_id)s, %(version)s)",{"client_id":self.json["client_id"],"version":self.latest_version[0][1]})
             self.json["id"] = self.lastid
             self.json["version"] = self.latest_version[0][1]
 
@@ -113,13 +124,19 @@ class MainWindow(customtkinter.CTk):
             thread.start()
 
         else:
-
             action.configure(text="A laucher naprakész!")
-
             time.sleep(3)
-
             thread = threading.Thread(target=self.open_launcher)
             thread.start()
+
+    def save_update(self):
+        id = self.json["id"]
+        client_id = self.json["client_id"]
+        version = self.latest_version[0][1]
+        database.update(
+            "UPDATE clients SET version = %(version)s WHERE id = %(id) AND client_id = %(client_id)",
+            {'version':version,'id':id,'client_id':client_id}
+        )
 
     def update(self):
 

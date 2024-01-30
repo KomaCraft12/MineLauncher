@@ -9,6 +9,53 @@ import subprocess
 import threading
 import json
 from CTkListbox import *
+import mysql.connector as mysql
+from mod_manager import manager
+class Database():
+    def __init__(self):
+        pass
+
+    def alternative_connect(self):
+        try:
+            self.conn = mysql.connect(host="komacloud.asuscomm.com",user="jano",password="Katica.bogar2002",database="mclauncher")
+        except mysql.Error as err:
+            print(err)
+    def connect(self):
+        try:
+            self.conn = mysql.connect(host="komacloud.synology.me",user="jano",password="Katica.bogar2002",database="mclauncher")
+        except mysql.Error as err:
+            print(err)
+            self.alternative_connect()
+
+    def disconnect(self):
+        self.conn.close()
+    def getTable(self,sql):
+        self.connect()
+        cursor = self.conn.cursor()
+        cursor.execute(sql)
+        result = cursor.fetchall()
+        cursor.close()
+        self.disconnect()
+        return result
+    def insert(self,sql,data):
+        self.connect()
+        cursor = self.conn.cursor()
+        cursor.execute(sql,data)
+        self.conn.commit()
+        lastid = cursor.lastrowid
+        cursor.close()
+        self.disconnect()
+        return lastid
+    def update(self,sql,data):
+        self.connect()
+        cursor = self.conn.cursor()
+        cursor.execute(sql,data)
+        self.conn.commit()
+        cursor.close()
+        self.disconnect()
+        return True
+
+database = Database()
 
 class MineCraft():
     def __init__(self):
@@ -25,10 +72,6 @@ class MineCraft():
             json.dump(self.json,file,indent=2)
 
     def getInstalledVersion(self):
-        """versions = minecraft_launcher_lib.utils.get_installed_versions(self.director)
-        for version in versions:
-            self.installed_versions.append(version["id"])
-        return self.installed_versions"""
         with open("versions.json","r") as file:
             self.versions_json = json.loads(file.read())
             lista = list(self.versions_json.keys())
@@ -44,124 +87,229 @@ class MineCraft():
 
 mc = MineCraft()
 
-"""class Version(customtkinter.CTkToplevel):
+class ModVersions(customtkinter.CTkToplevel):
+    def __init__(self,master,master_old,mod_url,modpack_version):
+        super().__init__(master)
+        self.title("MineCraft")
+        self.geometry('500x700')
+        self.resizable(False, False)
+        self.configure(fg_color="#8B4513")
+        self.master_old = master_old
+        self.mod_url = mod_url
+        self.mod_versions = manager.get_mod_files(mod_url)
+        self.modpack_version = modpack_version
+        self.mod_frame = {}
+        self.index = ""
+
+        print(self.mod_versions)
+
+        scrollable_frame = customtkinter.CTkScrollableFrame(self, height=550, width=460, fg_color="#CD853F")
+
+        index = 0
+        for version in self.mod_versions:
+
+            image = Image.open("java.png")
+
+            image2 = image.copy()
+            image2.convert("RGBA")
+            alpha = 0.75
+            alpha_int = int(alpha * 255)
+            image2.putalpha(alpha=alpha_int)
+            icon_image = customtkinter.CTkImage(light_image=image2, size=(50, 50))
+
+            self.mod_frame[index] = customtkinter.CTkFrame(scrollable_frame, fg_color="#D3D3D3", width=500, height=25)
+
+            column_left = customtkinter.CTkFrame(self.mod_frame[index], fg_color="#D3D3D3", height=25, width=50)
+            column_left.grid(row=0, column=0, padx=10, pady=10)
+            column_right = customtkinter.CTkFrame(self.mod_frame[index], fg_color="transparent", height=25)
+            column_right.grid(row=0, column=1)
+
+            icon = customtkinter.CTkLabel(column_left, image=icon_image, text="", fg_color="transparent")
+            icon.grid()
+
+            label = customtkinter.CTkLabel(column_right, text=version["title"], text_color="#000")
+            label.grid(row=0, column=0, padx=5, pady=3)
+
+            self.mod_frame[index].pack(side=customtkinter.TOP, anchor="w", fill='x', expand=True, padx=10, pady=10)
+
+            self.mod_frame[index].bind("<Button-1>", lambda event, mod_version_url=version['download'], index=index: self.frame_clicked(event,
+                                                                                                    mod_version_url,index))
+
+            index += 1
+
+        scrollable_frame.grid(row=0, column=0, padx=10, pady=10)
+
+        self.install_btn = customtkinter.CTkButton(self,text="Letöltés",command=self.download)
+        self.install_btn.grid()
+
+        self.progressbar = customtkinter.CTkProgressBar(self, orientation="horizontal", progress_color="gray",fg_color="gray",height=25,width=480,determinate_speed=0.01)
+        self.progressbar.set(0)
+        self.progressbar.grid(padx=5,pady=5)
+
+        self.file = customtkinter.CTkLabel(self, text="")
+        self.file.grid(padx=5,pady=5)
+
+        self.progress = customtkinter.CTkLabel(self, text="")
+        self.progress.grid(padx=5,pady=5)
+
+    def frame_clicked(self,event,mod_version_url,index):
+        self.selected_version_url = mod_version_url
+        self.mod_frame[index].configure(fg_color="#808080")
+        if self.index != "":
+            self.mod_frame[self.index].configure(fg_color="#D3D3D3")
+        self.index = index
+
+    def download(self):
+        thread = threading.Thread(target=self.downloading)
+        thread.start()
+    def downloading(self):
+        print(self.selected_version_url)
+
+        self.install_btn.configure(state=False)
+        self.progressbar.configure(progress_color="green")
+
+        print(self.modpack_version)
+
+        self.files = self.selected_version_url.split("/")[::-1][0]
+
+        url = self.selected_version_url
+
+        response = requests.get(url, stream=True)
+
+        total_size = int(response.headers.get('content-length', 0))
+        bytes_downloaded = 0
+
+        with open("modpacks/" + self.modpack_version + "/mods/" + self.files, 'wb') as f:
+            for chunk in response.iter_content(chunk_size=1024):
+                if chunk:
+                    f.write(chunk)
+                    bytes_downloaded += len(chunk)
+                    if bytes_downloaded % (10240000) == 0:
+                        self.download_progress(bytes_downloaded, total_size)
+
+    def download_progress(self, bytes_downloaded, total_size):
+        progress = (bytes_downloaded / total_size) * 100
+        self.file.configure(text="Fájl: "+self.files)
+        self.progress.configure(text=f'Letöltés: {progress:.2f}% ({bytes_downloaded}/{total_size} bytes)')
+        self.progressbar.set(bytes_downloaded / total_size)
+
+class ModsView(customtkinter.CTkToplevel):
     def __init__(self,master):
         super().__init__(master)
         self.title("MineCraft")
-        self.geometry('500x550')
+        self.geometry('1300x700')
         self.resizable(False, False)
-        self.selected_version = ""
-        self.isprogress = False
-        self.version_name = ""
+        self.configure(fg_color="#8B4513")
 
-        title_frame = customtkinter.CTkFrame(self,fg_color="#8B4513",corner_radius=0)
+        #8B4513
 
-        title = customtkinter.CTkLabel(title_frame, text="Modpack létrehoása", font=("Arial", 18), anchor='center', justify="center")
-        title.pack()
+        scrollable_frame = customtkinter.CTkScrollableFrame(self, height=400, width=608, fg_color="#CD853F")
+        self.scrollable_frame_2 = customtkinter.CTkScrollableFrame(self, height=400, width=608, fg_color="#CD853F")
 
-        name_frame = customtkinter.CTkFrame(self, fg_color="#8B4513", corner_radius=0)
+        files = os.listdir(os.path.join("modpacks/"+master.selected_version.lower()+"/mods"))
+        for file in files:
 
-        version_name_title = customtkinter.CTkLabel(name_frame, text="Modpack neve", font=("Arial", 16), height=25)
-        version_name_title.pack()
-        self.version_name = customtkinter.CTkTextbox(name_frame,height=25,width=400)
-        self.version_name.pack()
+            image = Image.open("java.png")
+            image2 = image.copy()
+            image2.convert("RGBA")
+            alpha = 0.75
+            alpha_int = int(alpha * 255)
+            image2.putalpha(alpha=alpha_int)
+            icon_image = customtkinter.CTkImage(light_image=image2, size=(50, 50))
 
-        area_frame = customtkinter.CTkFrame(self,fg_color="#8B4513",corner_radius=0)
+            self.mod_frame = customtkinter.CTkFrame(scrollable_frame, fg_color="#D3D3D3", width=480,height=25)
 
-        version_title = customtkinter.CTkLabel(area_frame, text="Modpack verziója", font=("Arial", 16), height=25)
-        version_title.pack()
+            column_left = customtkinter.CTkFrame(self.mod_frame,fg_color="#D3D3D3",height=25, width=50)
+            column_left.grid(row=0, column=0, padx=10, pady=10)
+            column_right = customtkinter.CTkFrame(self.mod_frame,fg_color="transparent",height=25)
+            column_right.grid(row=0,column=1)
 
-        listbox = CTkListbox(area_frame,command=lambda x: self.update(x), fg_color="#CD853F")
-        listbox.pack(fill="both", expand=True, padx=10, pady=10)
-        for index,version in enumerate(mc.getAvailableVersion("release")):
-            listbox.insert(index,version)
+            icon = customtkinter.CTkLabel(column_left, image=icon_image, text="", fg_color="transparent")
+            icon.grid()
 
-        btn = customtkinter.CTkFrame(self,fg_color="#8B4513",corner_radius=0)
-        self.button = customtkinter.CTkButton(btn,text="Telepítés",command=self.save,fg_color="#CD853F")
-        self.button.pack()
+            label = customtkinter.CTkLabel(column_right,text=file,text_color="#000")
+            label.grid(row=0,column=0,padx=5, pady=3)
 
-        progress_frame = customtkinter.CTkFrame(self,fg_color="#8B4513",corner_radius=0)
+            self.mod_frame.pack(side=customtkinter.TOP,anchor="w", fill='x', expand=True, padx=10, pady=10)
 
-        self.status = customtkinter.CTkLabel(progress_frame,text="")
-        self.status.pack()
+         # Use default argument
+
+        #scrollable_frame.pack(side="top",fill="both", expand=True, in_=self)
+        #frame.pack(side="top",fill="both", expand=True, in_=self)
+
+        # MODOK LISTÁZÁSA
+
+        label1 = customtkinter.CTkLabel(self,text="Telepített módok")
+        label1.grid(row=0,column=0,padx=10,pady=10)
+        self.text = customtkinter.CTkTextbox(self,height=25,width=608)
+        self.text.grid(row=1,column=1,padx=10,pady=10)
+        button = customtkinter.CTkButton(self,text="Keresés",height=25,width=608,command=self.search)
+        button.grid(row=2,column=1)
+        label2 = customtkinter.CTkLabel(self,text="Módok telepítése")
+        label2.grid(row=0,column=1,padx=10,pady=10)
+
+        scrollable_frame.grid(row=3,column=0,padx=10, pady=10)
+        self.scrollable_frame_2.grid(row=3,column=1,padx=10, pady=10)
+
+    def clear(self):
+        for widget in self.scrollable_frame_2.winfo_children():
+            widget.destroy()
+    def mods(self,mods):
+
+        for mod in mods:
+
+            if mod["icon"] != '':
+                response = requests.get(mod['icon'])
+                if response.status_code == 200:
+                    image = Image.open(BytesIO(response.content))
+                else:
+                    image = Image.open("java.png")
+            else:
+                image = Image.open("java.png")
+
+            image2 = image.copy()
+            image2.convert("RGBA")
+            alpha = 0.75
+            alpha_int = int(alpha * 255)
+            image2.putalpha(alpha=alpha_int)
+            icon_image = customtkinter.CTkImage(light_image=image2, size=(50, 50))
+
+            self.mod_frame = customtkinter.CTkFrame(self.scrollable_frame_2, fg_color="#D3D3D3", width=480,height=25)
+
+            column_left = customtkinter.CTkFrame(self.mod_frame,fg_color="#D3D3D3",height=25, width=50)
+            column_left.grid(row=0, column=0, padx=10, pady=10)
+            column_right = customtkinter.CTkFrame(self.mod_frame,fg_color="transparent",height=25)
+            column_right.grid(row=0,column=1)
+
+            icon = customtkinter.CTkLabel(column_left, image=icon_image, text="", fg_color="transparent")
+            icon.grid()
+
+            label = customtkinter.CTkLabel(column_right,text=mod['name'],text_color="#000")
+            label.grid(row=0,column=0,padx=5, pady=3)
+
+            self.mod_frame.pack(side=customtkinter.TOP,anchor="w", fill='x', expand=True, padx=10, pady=10)
+
+            self.mod_frame.bind("<Button-1>", lambda event, mod_url=mod['href']: self.frame_clicked(event,
+                                                                                                    mod_url))
+    def search(self):
+        q = self.text.get("0.0",customtkinter.END).replace("\n","")
+        mods = manager.mod_search(q)
+        self.clear()
+        self.mods(mods)
+
+    def frame_clicked(self,event,mod_url):
+        new = ModVersions(self,self.master,mod_url,self.master.selected_version.lower())
+        new.grab_set()
 
 
-        self.progressbar = customtkinter.CTkProgressBar(progress_frame, orientation="horizontal",progress_color="gray",fg_color="gray",height=25,width=400,determinate_speed=0.01)
-        self.progressbar.set(0)
-        self.progressbar.pack()
-
-        self.status2 = customtkinter.CTkLabel(progress_frame,text="",fg_color="transparent",height=20,corner_radius=0)
-        self.status2.pack()
-
-        title_frame.pack(side='top', fill="both", expand=True, in_=self)
-        name_frame.pack(side='top', fill="both", expand=True, in_=self)
-        area_frame.pack(side='top', fill="both", expand=True, in_=self)
-        btn.pack(side="top", fill="both", expand=True, in_=self)
-        progress_frame.pack(side='bottom', fill="both", expand=True, in_=self)
-
-    def update(self,value):
-        self.selected_version = value
-
-    def printProgressBar(self,iteration, total, prefix='', suffix='', decimals=1, length=100, fill='█', printEnd="\r"):
-        self.progressbar.set(iteration / float(total))
-        percent = round(100 * (iteration / float(total)))
-        self.status2.configure(text=str(percent)+"%")
-
-        #percent = ("{0:." + str(decimals) + "f}").format(100 * (iteration / float(total)))
-        #filledLength = int(length * iteration // total)
-        #bar = fill * filledLength + '-' * (length - filledLength)
-        #print('\r%s |%s| %s%% %s' % (prefix, bar, percent, suffix), end=printEnd)
-        #self.progressbar.set((iteration / float(total)))
-        # Print New Line on Complete
-        if iteration == total:
-            print()
-    def maximum(self,max_value, value):
-        max_value[0] = value
-    def printText(self,value):
-        self.status.configure(text=value)
-        print(value)
-        if value == "Installation complete":
-            self.progressbar.stop()
-            self.button.configure(state="normal")
-    def install(self):
-        #self.button.configure(state="disabled")
-        self.max_value = [0]
-        callback = {
-            "setStatus": lambda value: self.printText(value),
-            "setProgress": lambda value: self.printProgressBar(value, self.max_value[0]),
-            "setMax": lambda value: self.maximum(self.max_value,value)
-        }
-
-        version_name = self.version_name.get("1.0",customtkinter.END).replace("\n","")
-        dir_name = " ".join(version_name.split()).replace(" ","_").replace("\n","").lower()
-        os.mkdir("modpacks/"+dir_name)
-
-        game_director = "C:\\Users\\komar\\PycharmProjects\\teszteles\\modpacks\\"+dir_name
-
-        with open("versions.json","r") as file:
-            version_list = json.loads(file.read())
-            version_list[version_name] = {
-                "version": self.selected_version,
-                "gameDirector": game_director
-            }
-        with open("versions.json","w") as file:
-            file.write(json.dumps(version_list,indent=2))
-            print(version_list)
-
-        minecraft_launcher_lib.install.install_minecraft_version(self.selected_version, game_director, callback=callback)
-
-    def save(self):
-        self.progressbar.configure(progress_color="green")
-        thread = threading.Thread(target=self.install, daemon=True)
-        thread.start()
-"""
 class ModpackDownload(customtkinter.CTkToplevel):
     def __init__(self,master):
         super().__init__(master)
         self.title("MineCraft")
         self.geometry('500x700')
         self.resizable(False, False)
-        self.modpacks = requests.get("https://minecraft.komaweb.eu/modpacks.json").json()
+        #self.modpacks = requests.get("https://minecraft.komaweb.eu/modpacks.json").json()
+        self.modpacks = database.getTable("SELECT * FROM modpacks")
         self.key = ""
         self.modpack = ""
         self.modpack_frame = {}
@@ -175,13 +323,11 @@ class ModpackDownload(customtkinter.CTkToplevel):
 
         scrollable_frame = customtkinter.CTkScrollableFrame(self,height=400,width=480)
 
-        for i,keys in enumerate(list(self.modpacks.keys())):
-
-            modpack = self.modpacks[keys]
+        for keys,elem in enumerate(list(self.modpacks)):
 
             # ICON
 
-            response = requests.get(modpack['icon'])
+            response = requests.get(elem[2])
             if response.status_code == 200:
                 image = Image.open(BytesIO(response.content))
                 # Most már dolgozhat a képpel...
@@ -208,11 +354,11 @@ class ModpackDownload(customtkinter.CTkToplevel):
             icon = customtkinter.CTkLabel(column_left, image=icon_image, text="", fg_color="transparent")
             icon.grid()
             # SZÖVEGEK
-            label = customtkinter.CTkLabel(column_right, text=modpack['name'], fg_color="transparent", font=("Arial",16), text_color="#000")
+            label = customtkinter.CTkLabel(column_right, text=elem[1], fg_color="transparent", font=("Arial",16), text_color="#000")
             label.grid(row=0,column=0,padx=130, pady=3)
-            label2 = customtkinter.CTkLabel(column_right, text="Játékverzió: "+modpack['version'], fg_color="transparent",font=("Arial",10), text_color="#000")
+            label2 = customtkinter.CTkLabel(column_right, text="Játékverzió: "+elem[3], fg_color="transparent",font=("Arial",10), text_color="#000")
             label2.grid(row=1,column=0,padx=130, pady=3)
-            label3 = customtkinter.CTkLabel(column_right, text="Forge: " + modpack['forge'] if modpack['forge'] != '0' else '', fg_color="transparent",font=("Arial",10),text_color="#000")
+            label3 = customtkinter.CTkLabel(column_right, text="Forge: " + elem[4] if elem[4] != '0' else '', fg_color="transparent",font=("Arial",10),text_color="#000")
             label3.grid(row=2,column=0,padx=130, pady=3)
             self.modpack_frame[keys].pack(side=customtkinter.TOP,anchor="w",fill='both', expand=True,padx=10, pady=10)
 
@@ -249,6 +395,7 @@ class ModpackDownload(customtkinter.CTkToplevel):
         self.modpack_frame[keys].configure(fg_color="#808080")
         self.modpack = self.modpacks[keys]
         self.key = keys
+        print(self.modpack)
 
     def install(self):
 
@@ -259,13 +406,16 @@ class ModpackDownload(customtkinter.CTkToplevel):
         self.install_btn.configure(state=False)
         self.progressbar.configure(progress_color="green")
 
-        self.files = self.modpacks[self.key]["url"].split("/")[::-1][0]
-        url = self.modpacks[self.key]["url"]
+        self.files = self.modpacks[self.key][5].split("/")[::-1][0]
+        url = self.modpacks[self.key][5]
 
         response = requests.get(url, stream=True)
 
         total_size = int(response.headers.get('content-length', 0))
         bytes_downloaded = 0
+
+        if not(os.path.exists("temp/")):
+            os.mkdir("temp")
 
         with open("temp/" + self.files, 'wb') as f:
             for chunk in response.iter_content(chunk_size=1024):
@@ -277,19 +427,19 @@ class ModpackDownload(customtkinter.CTkToplevel):
 
         self.bar_custom_unzip("temp/" + self.files, "modpacks/")
 
-        dir_name = self.modpacks[self.key]["name"].lower()
+        dir_name = self.modpacks[self.key][1].lower()
 
-        if self.modpacks[self.key]["forge"] != "0":
-            version = self.modpacks[self.key]["version"] + "-forge-" + self.modpacks[self.key]["forge"]
+        if self.modpacks[self.key][4] != "0":
+            version = self.modpacks[self.key][3] + "-forge-" + self.modpacks[self.key][4]
         else:
-            version = self.modpacks[self.key]["version"]
+            version = self.modpacks[self.key][3]
 
         with open("versions.json", "r") as file:
             version_list = json.loads(file.read())
-            version_list[self.modpacks[self.key]["name"]] = {
+            version_list[self.modpacks[self.key][1]] = {
                 "version": version,
                 "gameDirector": os.getcwd() + "\\modpacks\\" + dir_name,
-                "icon": self.modpacks[self.key]["icon"]
+                "icon": self.modpacks[self.key][2]
             }
         with open("versions.json", "w") as file:
             file.write(json.dumps(version_list, indent=2))
@@ -536,6 +686,9 @@ class MainWindow(customtkinter.CTk):
         forge_version = customtkinter.CTkButton(self.menu, text="Modpack létrehozása",fg_color="#CD853F",command=self.open_forge_version)
         forge_version.grid(row=0, column=2, padx=10, pady=10)
 
+        forge_version = customtkinter.CTkButton(self.menu, text="Modok",fg_color="#CD853F",command=self.open_mod_viewer)
+        forge_version.grid(row=0, column=2, padx=10, pady=10)
+
         # NEWS
 
         """image = Image.open("mc4.jpg")
@@ -768,6 +921,10 @@ class MainWindow(customtkinter.CTk):
         new.grab_set()
     def open_forge_version(self):
         new = ForgeModpack(self)
+        new.grab_set()
+
+    def open_mod_viewer(self):
+        new = ModsView(self)
         new.grab_set()
 
 if __name__ == "__main__":
