@@ -3,5 +3,10 @@
     "version": "1.20.1-forge-47.2.0",
     "gameDirector": "C:\\Users\\komar\\PycharmProjects\\MineLauncher\\modpacks\\createmod",
     "icon": "https://minecraft.komaweb.eu/modpacks/createmod/icon/createmod.png"
+  },
+  "Vanilla": {
+    "version": "1.20.4",
+    "gameDirector": "C:\\Users\\komar\\PycharmProjects\\MineLauncher\\modpacks\\vanilla",
+    "icon": "https://minecraft.komaweb.eu/modpacks/vanilla/icon/vanilla.png"
   }
 }

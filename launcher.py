@@ -12,6 +12,7 @@ from CTkListbox import *
 import mysql.connector as mysql
 from bs4 import BeautifulSoup
 import shutil
+import webbrowser
 
 class Database():
     def __init__(self):
@@ -386,6 +387,8 @@ class ModsView(customtkinter.CTkToplevel):
         self.list_installed_mod(files,"enabled")
         self.list_installed_mod(files2,"disabled")
     def mod_disable(self):
+        if not(os.path.exists("modpacks/"+self.master.selected_version.lower()+"/mods-disabled")):
+            os.mkdir("modpacks/"+self.master.selected_version.lower()+"/mods-disabled")
         print("disable: "+self.selected_mod)
         shutil.move("modpacks/"+self.master.selected_version.lower()+"/mods/"+self.selected_mod,
                     "modpacks/"+self.master.selected_version.lower()+"/mods-disabled/"+self.selected_mod)
@@ -791,9 +794,6 @@ class MainWindow(customtkinter.CTk):
         forge_version = customtkinter.CTkButton(self.menu, text="Modpack létrehozása",fg_color="#CD853F",command=self.open_forge_version)
         forge_version.grid(row=0, column=2, padx=10, pady=10)
 
-        forge_version = customtkinter.CTkButton(self.menu, text="Modok",fg_color="#CD853F",command=self.open_mod_viewer)
-        forge_version.grid(row=0, column=2, padx=10, pady=10)
-
         # NEWS
 
         """image = Image.open("mc4.jpg")
@@ -864,8 +864,7 @@ class MainWindow(customtkinter.CTk):
                                                                                                         keys))  # Use default argument
 
         # FŐ
-
-
+        self.button_frame = customtkinter.CTkFrame(self.version_data_frame,width=1025,height=50,fg_color="#CD853F")
         title_frame = customtkinter.CTkFrame(self.version_data_frame,width=1025,height=650,fg_color="#CD853F")
 
         self.modpack_title = customtkinter.CTkLabel(title_frame,text="",font=("Arial",32),text_color="#fff",fg_color="transparent")
@@ -878,6 +877,7 @@ class MainWindow(customtkinter.CTk):
         #news_desc = customtkinter.CTkLabel(news_frame,text="Ez meg egy leirása a hirnek ahol jó nagyon részletezzük amit ide le kell majd irni",font=("Arial",12))
         #news_desc.pack()
 
+        self.button_frame.pack(side=customtkinter.TOP, anchor="w", fill='both', expand=True, pady=10, padx=10)
         title_frame.pack(side=customtkinter.TOP, anchor="w", fill='both', expand=True, pady=10, padx=10)
         #self.news_frame.pack(fill='y', expand=False, ipady=10, ipadx=10)
         #self.news_frame2.pack(fill='y', expand=False, ipady=10, ipadx=10)
@@ -939,6 +939,20 @@ class MainWindow(customtkinter.CTk):
 
             with open("versions.json", "r") as file:
                 versions = json.loads(file.read())
+
+            for widget in self.button_frame.winfo_children():
+                widget.destroy()
+
+            self.button_open_website = customtkinter.CTkButton(self.button_frame, text="Webhely", fg_color="green",command=self.open_modpack_website)
+            self.mods_button = customtkinter.CTkButton(self.button_frame, text="Modok", fg_color="green",command=self.open_mod_viewer)
+
+            if "forge" in versions[self.selected_version]["version"]:
+                # -after, -anchor, -before, -expand, -fill, -in, -ipadx, -ipady, -padx, -pady, or -side
+                self.button_open_website.grid(row=0, column=0,padx=10,pady=10)
+                self.mods_button.grid(row=0,column=1,padx=10,pady=10)
+            else:
+                self.button_open_website.grid(row=0, column=0,padx=10,pady=10)
+
 
             if versions[self.selected_version]["icon"] != "":
                 response = requests.get(versions[self.selected_version]["icon"])
@@ -1031,6 +1045,11 @@ class MainWindow(customtkinter.CTk):
     def open_mod_viewer(self):
         new = ModsView(self)
         new.grab_set()
+
+    def open_modpack_website(self):
+        result = database.getTable("SELECT * FROM modpacks WHERE name = '"+self.selected_version+"'")
+        url = "https://minecraft.komaweb.eu/modpack.php?id="+str(result[0][0])
+        webbrowser.open_new_tab(url)
 
 if __name__ == "__main__":
     app = MainWindow()
