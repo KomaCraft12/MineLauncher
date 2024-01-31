@@ -11,6 +11,7 @@ import json
 from CTkListbox import *
 import mysql.connector as mysql
 from bs4 import BeautifulSoup
+import shutil
 
 class Database():
     def __init__(self):
@@ -235,45 +236,22 @@ class ModsView(customtkinter.CTkToplevel):
     def __init__(self,master):
         super().__init__(master)
         self.title("MineCraft")
-        self.geometry('1300x700')
+        self.geometry('1300x650')
         self.resizable(False, False)
         self.configure(fg_color="#8B4513")
         self.mod_frame_2 = {}
         self.selected_mod = ""
+        self.selected_mod_color = ""
 
         #8B4513
 
-        scrollable_frame = customtkinter.CTkScrollableFrame(self, height=400, width=608, fg_color="#CD853F")
-        self.scrollable_frame_2 = customtkinter.CTkScrollableFrame(self, height=400, width=608, fg_color="#CD853F")
+        self.scrollable_frame = customtkinter.CTkScrollableFrame(self, height=500, width=608, fg_color="#CD853F")
+        self.scrollable_frame_2 = customtkinter.CTkScrollableFrame(self, height=500, width=608, fg_color="#CD853F")
 
-        files = os.listdir(os.path.join("modpacks/"+master.selected_version.lower()+"/mods"))
-        for file in files:
-
-            image = Image.open("java.png")
-            image2 = image.copy()
-            image2.convert("RGBA")
-            alpha = 0.75
-            alpha_int = int(alpha * 255)
-            image2.putalpha(alpha=alpha_int)
-            icon_image = customtkinter.CTkImage(light_image=image2, size=(50, 50))
-
-            self.mod_frame_2[file] = customtkinter.CTkFrame(scrollable_frame, fg_color="#D3D3D3", width=480,height=25)
-
-            column_left = customtkinter.CTkFrame(self.mod_frame_2[file],fg_color="#D3D3D3",height=25, width=50)
-            column_left.grid(row=0, column=0, padx=10, pady=10)
-            column_right = customtkinter.CTkFrame(self.mod_frame_2[file],fg_color="transparent",height=25)
-            column_right.grid(row=0,column=1)
-
-            icon = customtkinter.CTkLabel(column_left, image=icon_image, text="", fg_color="transparent")
-            icon.grid()
-
-            label = customtkinter.CTkLabel(column_right,text=file,text_color="#000")
-            label.grid(row=0,column=0,padx=5, pady=3)
-
-            self.mod_frame_2[file].pack(side=customtkinter.TOP,anchor="w", fill='x', expand=True, padx=10, pady=10)
-
-            self.mod_frame_2[file].bind("<Button-1>", lambda event, file=file: self.mod_selected(event,
-                                                                                                    file))
+        files = list(os.listdir(os.path.join("modpacks/"+master.selected_version.lower()+"/mods")))
+        files2 = list(os.listdir(os.path.join("modpacks/"+master.selected_version.lower()+"/mods-disabled")))
+        self.list_installed_mod(files,"enabled")
+        self.list_installed_mod(files2,"disabled")
 
          # Use default argument
 
@@ -282,29 +260,68 @@ class ModsView(customtkinter.CTkToplevel):
 
         # MODOK LISTÁZÁSA
 
-        label1 = customtkinter.CTkLabel(self,text="Telepített módok")
+        label1 = customtkinter.CTkLabel(self,text="Telepített módok",font=("Arial",24))
         label1.grid(row=0,column=0,padx=10,pady=10)
-        self.text = customtkinter.CTkTextbox(self,height=25,width=608)
-        self.text.grid(row=1,column=1,padx=10,pady=10)
-        button = customtkinter.CTkButton(self,text="Keresés",height=25,width=608,command=self.search)
-        button.grid(row=2,column=1)
-        label2 = customtkinter.CTkLabel(self,text="Módok telepítése")
+
+        frame_jobb = customtkinter.CTkFrame(self, width=608, height=50, fg_color="#CD853F")
+        frame_jobb.grid(row=1,column=1,padx=10,pady=10,sticky="ew")
+        self.text = customtkinter.CTkTextbox(frame_jobb,height=25,width=500)
+        self.text.grid(row=0,column=0,padx=10,pady=10)
+        button = customtkinter.CTkButton(frame_jobb,text="Keresés",height=25,width=100,command=self.search,fg_color="green")
+        button.grid(row=0,column=1)
+
+        label2 = customtkinter.CTkLabel(self,text="Módok telepítése",font=("Arial",24))
         label2.grid(row=0,column=1,padx=10,pady=10)
 
-        scrollable_frame.grid(row=3,column=0,padx=10, pady=10)
+        self.scrollable_frame.grid(row=3,column=0,padx=10, pady=10)
         self.scrollable_frame_2.grid(row=3,column=1,padx=10, pady=10)
 
         # Alsó sáv
 
         frame_bal = customtkinter.CTkFrame(self, width=608, height=50, fg_color="#CD853F")
-        frame_bal.grid(row=4,column=0,padx=10, pady=10,sticky="ew")
-        button_del = customtkinter.CTkButton(frame_bal,text="Törlés")
-        button_del.grid(row=4,column=0,padx=10,pady=10)
-        button_del = customtkinter.CTkButton(frame_bal, text="Törlés")
-        button_del.grid(row=4, column=1,padx=10,pady=10)
+        frame_bal.grid(row=1,column=0,padx=10, pady=10,sticky="ew")
+        button_del = customtkinter.CTkButton(frame_bal,text="Törlés",fg_color="red",command=self.mod_remove)
+        button_del.grid(row=0,column=0,padx=10,pady=10)
+        button_disble = customtkinter.CTkButton(frame_bal, text="Letiltás",fg_color="orange",command=self.mod_disable)
+        button_disble.grid(row=0, column=1,padx=10,pady=10)
+        button_enable = customtkinter.CTkButton(frame_bal, text="Engedélyezés",fg_color="green",command=self.mod_enable)
+        button_enable.grid(row=0, column=2,padx=10,pady=10)
 
-    def clear(self):
+    def list_installed_mod(self,files,mod):
+
+        for file in files:
+            image = Image.open("java.png")
+            image2 = image.copy()
+            image2.convert("RGBA")
+            alpha = 0.4
+            alpha_int = int(alpha * 255)
+            image2.putalpha(alpha=alpha_int)
+            icon_image = customtkinter.CTkImage(light_image=image2, size=(50, 50))
+
+            color = "green" if mod == "enabled" else "red"
+
+            self.mod_frame_2[file] = customtkinter.CTkFrame(self.scrollable_frame, fg_color="white", width=480, height=25)
+
+            column_left = customtkinter.CTkFrame(self.mod_frame_2[file], fg_color=color, height=25, width=50)
+            column_left.grid(row=0, column=0, padx=10, pady=10)
+            column_right = customtkinter.CTkFrame(self.mod_frame_2[file], fg_color="transparent", height=25)
+            column_right.grid(row=0, column=1)
+
+            icon = customtkinter.CTkLabel(column_left, image=icon_image, text="", fg_color="transparent")
+            icon.grid()
+
+            label = customtkinter.CTkLabel(column_right, text=file, text_color="#000")
+            label.grid(row=0, column=0, padx=5, pady=3)
+
+            self.mod_frame_2[file].pack(side=customtkinter.TOP, anchor="w", fill='x', expand=True, padx=10, pady=10)
+
+            self.mod_frame_2[file].bind("<Button-1>", lambda event, file=file: self.mod_selected(event,
+                                                                                                 file))
+    def clear_2(self):
         for widget in self.scrollable_frame_2.winfo_children():
+            widget.destroy()
+    def clear(self):
+        for widget in self.scrollable_frame.winfo_children():
             widget.destroy()
     def mods(self,mods):
 
@@ -346,15 +363,44 @@ class ModsView(customtkinter.CTkToplevel):
     def search(self):
         q = self.text.get("0.0",customtkinter.END).replace("\n","")
         mods = manager.mod_search(q)
-        self.clear()
+        self.clear_2()
         self.mods(mods)
 
     def mod_selected(self,event,file):
+
         print(file)
+
         if self.selected_mod != "":
-            self.mod_frame_2[self.selected_mod].configure(fg_color="#D3D3D3")
+            self.mod_frame_2[self.selected_mod].configure(fg_color=self.selected_mod_color)
+        self.selected_mod_color = self.mod_frame_2[file].cget("fg_color")
         self.mod_frame_2[file].configure(fg_color="#808080")
         self.selected_mod = file
+
+    def mod_enable(self):
+        print("enable: "+self.selected_mod)
+        shutil.move("modpacks/" + self.master.selected_version.lower() + "/mods-disabled/" + self.selected_mod,
+                    "modpacks/" + self.master.selected_version.lower() + "/mods/" + self.selected_mod)
+        self.clear()
+        files = list(os.listdir(os.path.join("modpacks/" + self.master.selected_version.lower() + "/mods")))
+        files2 = list(os.listdir(os.path.join("modpacks/" + self.master.selected_version.lower() + "/mods-disabled")))
+        self.list_installed_mod(files,"enabled")
+        self.list_installed_mod(files2,"disabled")
+    def mod_disable(self):
+        print("disable: "+self.selected_mod)
+        shutil.move("modpacks/"+self.master.selected_version.lower()+"/mods/"+self.selected_mod,
+                    "modpacks/"+self.master.selected_version.lower()+"/mods-disabled/"+self.selected_mod)
+        self.clear()
+        files = list(os.listdir(os.path.join("modpacks/" + self.master.selected_version.lower() + "/mods")))
+        files2 = list(os.listdir(os.path.join("modpacks/" + self.master.selected_version.lower() + "/mods-disabled")))
+        self.list_installed_mod(files,"enabled")
+        self.list_installed_mod(files2,"disabled")
+    def mod_remove(self):
+        print("remove: "+self.selected_mod)
+        self.clear()
+        files = list(os.listdir(os.path.join("modpacks/" + self.master.selected_version.lower() + "/mods")))
+        files2 = list(os.listdir(os.path.join("modpacks/" + self.master.selected_version.lower() + "/mods-disabled")))
+        self.list_installed_mod(files,"enabled")
+        self.list_installed_mod(files2,"disabled")
 
     def frame_clicked(self,event,mod_url):
         new = ModVersions(self,self.master,mod_url,self.master.selected_version.lower())
