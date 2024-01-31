@@ -1,4 +1,5 @@
 import os
+import zipp
 import zipfile
 from io import BytesIO
 import customtkinter

@@ -3,3 +3,5 @@ modpacks/
 .idea/
 temp/
 output/
+setup.py
+build/
