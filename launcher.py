@@ -141,6 +141,8 @@ class ModVersions(customtkinter.CTkToplevel):
         self.mod_frame = {}
         self.index = ""
 
+        self.protocol("WM_DELETE_WINDOW", self.on_close)  # Hozzárendeljük a bezárás eseményt
+
         print(self.mod_versions)
 
         scrollable_frame = customtkinter.CTkScrollableFrame(self, height=550, width=460, fg_color="#CD853F")
@@ -235,6 +237,10 @@ class ModVersions(customtkinter.CTkToplevel):
         self.file.configure(text="Fájl: "+self.files)
         self.progress.configure(text=f'Letöltés: {progress:.2f}% ({bytes_downloaded}/{total_size} bytes)')
         self.progressbar.set(bytes_downloaded / total_size)
+
+    def on_close(self):
+        self.master.modversion_closed()
+        self.destroy()
 
 class ModsView(customtkinter.CTkToplevel):
     def __init__(self,master):
@@ -386,47 +392,57 @@ class ModsView(customtkinter.CTkToplevel):
         self.selected_mod = file
 
     def mod_enable(self):
-        print("enable: "+self.selected_mod)
-        shutil.move("modpacks/" + self.master.selected_version.lower() + "/mods-disabled/" + self.selected_mod,
-                    "modpacks/" + self.master.selected_version.lower() + "/mods/" + self.selected_mod)
-        self.clear()
-        files = list(os.listdir(os.path.join("modpacks/" + self.master.selected_version.lower() + "/mods")))
-        files2 = list(os.listdir(os.path.join("modpacks/" + self.master.selected_version.lower() + "/mods-disabled")))
-        self.list_installed_mod(files,"enabled")
-        self.list_installed_mod(files2,"disabled")
+        if self.selected_mod != "":
+            print("enable: "+self.selected_mod)
+            shutil.move("modpacks/" + self.master.selected_version.lower() + "/mods-disabled/" + self.selected_mod,
+                        "modpacks/" + self.master.selected_version.lower() + "/mods/" + self.selected_mod)
+            self.clear()
+            files = list(os.listdir(os.path.join("modpacks/" + self.master.selected_version.lower() + "/mods")))
+            files2 = list(os.listdir(os.path.join("modpacks/" + self.master.selected_version.lower() + "/mods-disabled")))
+            self.list_installed_mod(files,"enabled")
+            self.list_installed_mod(files2,"disabled")
     def mod_disable(self):
-        if not(os.path.exists("modpacks/"+self.master.selected_version.lower()+"/mods-disabled")):
-            os.mkdir("modpacks/"+self.master.selected_version.lower()+"/mods-disabled")
-        print("disable: "+self.selected_mod)
-        shutil.move("modpacks/"+self.master.selected_version.lower()+"/mods/"+self.selected_mod,
-                    "modpacks/"+self.master.selected_version.lower()+"/mods-disabled/"+self.selected_mod)
-        self.clear()
-        files = list(os.listdir(os.path.join("modpacks/" + self.master.selected_version.lower() + "/mods")))
-        files2 = list(os.listdir(os.path.join("modpacks/" + self.master.selected_version.lower() + "/mods-disabled")))
-        self.list_installed_mod(files,"enabled")
-        self.list_installed_mod(files2,"disabled")
+        if self.selected_mod != "":
+            if not(os.path.exists("modpacks/"+self.master.selected_version.lower()+"/mods-disabled")):
+                os.mkdir("modpacks/"+self.master.selected_version.lower()+"/mods-disabled")
+            print("disable: "+self.selected_mod)
+            shutil.move("modpacks/"+self.master.selected_version.lower()+"/mods/"+self.selected_mod,
+                        "modpacks/"+self.master.selected_version.lower()+"/mods-disabled/"+self.selected_mod)
+            self.clear()
+            files = list(os.listdir(os.path.join("modpacks/" + self.master.selected_version.lower() + "/mods")))
+            files2 = list(os.listdir(os.path.join("modpacks/" + self.master.selected_version.lower() + "/mods-disabled")))
+            self.list_installed_mod(files,"enabled")
+            self.list_installed_mod(files2,"disabled")
     def mod_remove(self):
-        print("remove: "+self.selected_mod)
-        self.clear()
-        if os.path.isfile("modpacks/" + self.master.selected_version.lower() + "/mods/"+self.selected_mod):
-            try:
-                os.remove("modpacks/" + self.master.selected_version.lower() + "/mods/"+self.selected_mod)
-            except:
-                pass
-        else:
-            try:
-                os.remove("modpacks/" + self.master.selected_version.lower() + "/mods-disabled/" + self.selected_mod)
-            except:
-                pass
-        files = list(os.listdir(os.path.join("modpacks/" + self.master.selected_version.lower() + "/mods")))
-        files2 = list(os.listdir(os.path.join("modpacks/" + self.master.selected_version.lower() + "/mods-disabled")))
-        self.list_installed_mod(files,"enabled")
-        self.list_installed_mod(files2,"disabled")
+        if self.selected_mod != "":
+            print("remove: "+self.selected_mod)
+            self.clear()
+            if os.path.isfile("modpacks/" + self.master.selected_version.lower() + "/mods/"+self.selected_mod):
+                try:
+                    os.remove("modpacks/" + self.master.selected_version.lower() + "/mods/"+self.selected_mod)
+                except:
+                    pass
+            else:
+                try:
+                    os.remove("modpacks/" + self.master.selected_version.lower() + "/mods-disabled/" + self.selected_mod)
+                except:
+                    pass
+            files = list(os.listdir(os.path.join("modpacks/" + self.master.selected_version.lower() + "/mods")))
+            files2 = list(os.listdir(os.path.join("modpacks/" + self.master.selected_version.lower() + "/mods-disabled")))
+            self.list_installed_mod(files,"enabled")
+            self.list_installed_mod(files2,"disabled")
+            self.selected_mod = ""
 
     def frame_clicked(self,event,mod_url):
         new = ModVersions(self,self.master,mod_url,self.master.selected_version.lower())
         new.grab_set()
 
+    def modversion_closed(self):
+        self.clear()
+        files = list(os.listdir(os.path.join("modpacks/" + self.master.selected_version.lower() + "/mods")))
+        files2 = list(os.listdir(os.path.join("modpacks/" + self.master.selected_version.lower() + "/mods-disabled")))
+        self.list_installed_mod(files, "enabled")
+        self.list_installed_mod(files2, "disabled")
 
 class ModpackDownload(customtkinter.CTkToplevel):
     def __init__(self,master):
@@ -439,6 +455,7 @@ class ModpackDownload(customtkinter.CTkToplevel):
         self.key = ""
         self.modpack = ""
         self.modpack_frame = {}
+        self.protocol("WM_DELETE_WINDOW", self.close)
 
         #print(os.getcwd())
 
@@ -598,6 +615,11 @@ class ModpackDownload(customtkinter.CTkToplevel):
             self.file.configure(text="")
             self.progress.configure(text=f'Sikeres telepítés!')
             # print('\nExtraction complete.')
+
+    def close(self):
+        self.master.close_child_window()
+        self.destroy()
+
 class ForgeModpack(customtkinter.CTkToplevel):
     def __init__(self,master):
         super().__init__(master)
@@ -611,6 +633,7 @@ class ForgeModpack(customtkinter.CTkToplevel):
         self.isforge = customtkinter.StringVar()
         self.isforge.set("off")
         self.selected_forge_version = ""
+        self.protocol("WM_DELETE_WINDOW", self.close)
 
         title_frame = customtkinter.CTkFrame(self,fg_color="#8B4513",corner_radius=0)
 
@@ -758,6 +781,10 @@ class ForgeModpack(customtkinter.CTkToplevel):
         thread = threading.Thread(target=self.install, daemon=True)
         thread.start()
 
+    def close(self):
+        self.master.close_child_window()
+        self.destroy()
+
 class Setting(customtkinter.CTkToplevel):
 
     def __init__(self,master):
@@ -765,6 +792,7 @@ class Setting(customtkinter.CTkToplevel):
         self.title("MineCraft")
         self.geometry('475x175')
         self.resizable(False, False)
+        self.protocol("WM_DELETE_WINDOW", self.close)
 
         title = customtkinter.CTkFrame(self,fg_color="#8B4513",corner_radius=0)
 
@@ -799,6 +827,10 @@ class Setting(customtkinter.CTkToplevel):
         mc.json["RAM"] = self.memory.get("0.0",customtkinter.END).split("\n")[0]
         with open("setting.json", "w") as file:
             json.dump(mc.json, file, indent=2)
+
+    def close(self):
+        self.master.close_child_window()
+        self.destroy()
 
 class MainWindow(customtkinter.CTk):
     def __init__(self):
@@ -842,57 +874,12 @@ class MainWindow(customtkinter.CTk):
 
         bg.pack(side="top", fill="both", expand=True)"""
 
-        version_list_frame = customtkinter.CTkScrollableFrame(self.news,height=650,width=275,corner_radius=0)
+        self.version_list_frame = customtkinter.CTkScrollableFrame(self.news,height=650,width=275,corner_radius=0)
         self.version_data_frame = customtkinter.CTkScrollableFrame(self.news,height=650,width=1010,corner_radius=0,fg_color="#CD853F")
-        version_list_frame.grid(row=0,column=0)
+        self.version_list_frame.grid(row=0,column=0)
         self.version_data_frame.grid(row=0,column=1)
 
-        with open("versions.json","r") as file:
-            versions = json.loads(file.read())
-            for version_name in versions:
-
-                version_name = str(version_name)
-
-                if versions[version_name]["icon"] != "":
-                    response = requests.get(versions[version_name]["icon"])
-                    if response.status_code == 200:
-                        image = Image.open(BytesIO(response.content))
-                        # Most már dolgozhat a képpel...
-                    else:
-                        print("Nem sikerült letölteni a képet.")
-                        image = Image.open("vanilla.png")
-                else:
-                    image = Image.open("vanilla.png")
-
-
-                image2 = image.copy()
-                image2.convert("RGBA")
-                alpha = 0.75
-                alpha_int = int(alpha * 255)
-                image2.putalpha(alpha=alpha_int)
-                icon_image = customtkinter.CTkImage(light_image=image2, size=(100, 100))
-
-                # MAIN FRAME
-                self.modpack_frame = customtkinter.CTkFrame(version_list_frame,fg_color="#D3D3D3")
-
-                # COLUMNS
-                column_left = customtkinter.CTkFrame(self.modpack_frame,fg_color="transparent")
-                column_left.grid(row=0, column=0, padx=10, pady=10)
-                column_right = customtkinter.CTkFrame(self.modpack_frame,fg_color="transparent")
-                column_right.grid(row=0, column=1)
-
-                icon = customtkinter.CTkLabel(column_left, image=icon_image, text="", fg_color="transparent")
-                icon.grid()
-                # SZÖVEGEK
-                label = customtkinter.CTkLabel(column_right, text=version_name,text_color="#000",font=("Arial", 16))
-                label.pack(side="top", fill="both", expand=True)
-                self.modpack_frame.pack(side=customtkinter.TOP, anchor="w", fill='both', expand=True, pady=10, padx=10)
-
-                icon.bind("<Button-1>", lambda event, keys=version_name: self.frame_clicked(event, keys))
-                column_right.bind("<Button-1>", lambda event, keys=version_name: self.frame_clicked(event, keys))
-                label.bind("<Button-1>", lambda event, keys=version_name: self.frame_clicked(event, keys))
-                self.modpack_frame.bind("<Button-1>", lambda event, keys=version_name: self.frame_clicked(event,
-                                                                                                        keys))  # Use default argument
+        self.list_modpacks()
 
         # FŐ
         self.button_frame = customtkinter.CTkFrame(self.version_data_frame,width=1025,height=50,fg_color="#CD853F")
@@ -937,6 +924,59 @@ class MainWindow(customtkinter.CTk):
         self.menu.pack(side="top", fill="x", in_=self)
         self.news.pack(side="top", fill="x", in_=self)
         self.app.pack(side="top", fill="x", in_=self)
+
+    def list_modpacks(self):
+
+        for child in self.version_list_frame.winfo_children():
+            child.destroy()
+
+        with open("versions.json","r") as file:
+            versions = json.loads(file.read())
+            for version_name in versions:
+
+                version_name = str(version_name)
+
+                if versions[version_name]["icon"] != "":
+                    response = requests.get(versions[version_name]["icon"])
+                    if response.status_code == 200:
+                        image = Image.open(BytesIO(response.content))
+                        # Most már dolgozhat a képpel...
+                    else:
+                        print("Nem sikerült letölteni a képet.")
+                        image = Image.open("vanilla.png")
+                else:
+                    image = Image.open("vanilla.png")
+
+
+                image2 = image.copy()
+                image2.convert("RGBA")
+                alpha = 0.75
+                alpha_int = int(alpha * 255)
+                image2.putalpha(alpha=alpha_int)
+                icon_image = customtkinter.CTkImage(light_image=image2, size=(100, 100))
+
+                # MAIN FRAME
+                self.modpack_frame = customtkinter.CTkFrame(self.version_list_frame,fg_color="#D3D3D3")
+
+                # COLUMNS
+                column_left = customtkinter.CTkFrame(self.modpack_frame,fg_color="transparent")
+                column_left.grid(row=0, column=0, padx=10, pady=10)
+                column_right = customtkinter.CTkFrame(self.modpack_frame,fg_color="transparent")
+                column_right.grid(row=0, column=1)
+
+                icon = customtkinter.CTkLabel(column_left, image=icon_image, text="", fg_color="transparent")
+                icon.grid()
+                # SZÖVEGEK
+                label = customtkinter.CTkLabel(column_right, text=version_name,text_color="#000",font=("Arial", 16))
+                label.pack(side="top", fill="both", expand=True)
+                self.modpack_frame.pack(side=customtkinter.TOP, anchor="w", fill='both', expand=True, pady=10, padx=10)
+
+                icon.bind("<Button-1>", lambda event, keys=version_name: self.frame_clicked(event, keys))
+                column_right.bind("<Button-1>", lambda event, keys=version_name: self.frame_clicked(event, keys))
+                label.bind("<Button-1>", lambda event, keys=version_name: self.frame_clicked(event, keys))
+                self.modpack_frame.bind("<Button-1>", lambda event, keys=version_name: self.frame_clicked(event,
+                                                                                                        keys))  # Use default argument
+
 
     def clear_news(self):
         # Töröljük az összes hír frame-t
@@ -1032,7 +1072,7 @@ class MainWindow(customtkinter.CTk):
             print("Nem létezik")
 
     def selected_version_menu(self):
-        pass
+        self.list_modpacks()
 
     def start(self):
 
@@ -1084,6 +1124,9 @@ class MainWindow(customtkinter.CTk):
     def open_mod_viewer(self):
         new = ModsView(self)
         new.grab_set()
+
+    def close_child_window(self):
+        self.list_modpacks()
 
     def open_modpack_website(self):
         result = database.getTable("SELECT * FROM modpacks WHERE name = '"+self.selected_version+"'")
