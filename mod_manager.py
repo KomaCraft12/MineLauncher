@@ -14,7 +14,10 @@ class Manager():
 
         for div in soup.find_all("article", class_="project-card"):
             a = div.find_all("a",class_="icon")[0]["href"]
-            img = div.find_all("img",class_="avatar")[0]["src"]
+            if div.find_all("img",class_="avatar") != []:
+                img = div.find_all("img",class_="avatar")[0]["src"]
+            else:
+                img = ""
             title = div.find_all("h2",class_="name")[0].text
             result.append({'name': title, "icon":img, "href": a})
 
@@ -34,4 +37,4 @@ class Manager():
         return result
 
 manager = Manager()
-print(manager.get_mod_files("/mod/create"))
+#print(manager.mod_search("create"))

@@ -10,7 +10,8 @@ import threading
 import json
 from CTkListbox import *
 import mysql.connector as mysql
-from mod_manager import manager
+from bs4 import BeautifulSoup
+
 class Database():
     def __init__(self):
         pass
@@ -56,6 +57,43 @@ class Database():
         return True
 
 database = Database()
+
+class Manager():
+
+    def __init__(self):
+        pass
+
+    def mod_search(self,q):
+        html = requests.get("https://modrinth.com/mods?q="+q)
+        soup = BeautifulSoup(html.content, "html.parser")
+
+        result = []
+
+        for div in soup.find_all("article", class_="project-card"):
+            a = div.find_all("a",class_="icon")[0]["href"]
+            if div.find_all("img",class_="avatar") != []:
+                img = div.find_all("img",class_="avatar")[0]["src"]
+            else:
+                img = ""
+            title = div.find_all("h2",class_="name")[0].text
+            result.append({'name': title, "icon":img, "href": a})
+
+        return result
+
+    def get_mod_files(self,mod_url):
+        html = requests.get("https://modrinth.com"+mod_url+"/versions#all-versions")
+        soup = BeautifulSoup(html.content, "html.parser")
+
+        result = []
+
+        for div in soup.find_all("div", class_="version-button"):
+            a = div.find_all("a",class_="download-button")[0]["href"]
+            title = div.find_all("a",class_="version__title")[0].text
+            result.append({'title': title, "download": a})
+
+        return result
+
+manager = Manager()
 
 class MineCraft():
     def __init__(self):
@@ -200,6 +238,8 @@ class ModsView(customtkinter.CTkToplevel):
         self.geometry('1300x700')
         self.resizable(False, False)
         self.configure(fg_color="#8B4513")
+        self.mod_frame_2 = {}
+        self.selected_mod = ""
 
         #8B4513
 
@@ -217,11 +257,11 @@ class ModsView(customtkinter.CTkToplevel):
             image2.putalpha(alpha=alpha_int)
             icon_image = customtkinter.CTkImage(light_image=image2, size=(50, 50))
 
-            self.mod_frame = customtkinter.CTkFrame(scrollable_frame, fg_color="#D3D3D3", width=480,height=25)
+            self.mod_frame_2[file] = customtkinter.CTkFrame(scrollable_frame, fg_color="#D3D3D3", width=480,height=25)
 
-            column_left = customtkinter.CTkFrame(self.mod_frame,fg_color="#D3D3D3",height=25, width=50)
+            column_left = customtkinter.CTkFrame(self.mod_frame_2[file],fg_color="#D3D3D3",height=25, width=50)
             column_left.grid(row=0, column=0, padx=10, pady=10)
-            column_right = customtkinter.CTkFrame(self.mod_frame,fg_color="transparent",height=25)
+            column_right = customtkinter.CTkFrame(self.mod_frame_2[file],fg_color="transparent",height=25)
             column_right.grid(row=0,column=1)
 
             icon = customtkinter.CTkLabel(column_left, image=icon_image, text="", fg_color="transparent")
@@ -230,7 +270,10 @@ class ModsView(customtkinter.CTkToplevel):
             label = customtkinter.CTkLabel(column_right,text=file,text_color="#000")
             label.grid(row=0,column=0,padx=5, pady=3)
 
-            self.mod_frame.pack(side=customtkinter.TOP,anchor="w", fill='x', expand=True, padx=10, pady=10)
+            self.mod_frame_2[file].pack(side=customtkinter.TOP,anchor="w", fill='x', expand=True, padx=10, pady=10)
+
+            self.mod_frame_2[file].bind("<Button-1>", lambda event, file=file: self.mod_selected(event,
+                                                                                                    file))
 
          # Use default argument
 
@@ -250,6 +293,15 @@ class ModsView(customtkinter.CTkToplevel):
 
         scrollable_frame.grid(row=3,column=0,padx=10, pady=10)
         self.scrollable_frame_2.grid(row=3,column=1,padx=10, pady=10)
+
+        # Alsó sáv
+
+        frame_bal = customtkinter.CTkFrame(self, width=608, height=50, fg_color="#CD853F")
+        frame_bal.grid(row=4,column=0,padx=10, pady=10,sticky="ew")
+        button_del = customtkinter.CTkButton(frame_bal,text="Törlés")
+        button_del.grid(row=4,column=0,padx=10,pady=10)
+        button_del = customtkinter.CTkButton(frame_bal, text="Törlés")
+        button_del.grid(row=4, column=1,padx=10,pady=10)
 
     def clear(self):
         for widget in self.scrollable_frame_2.winfo_children():
@@ -296,6 +348,13 @@ class ModsView(customtkinter.CTkToplevel):
         mods = manager.mod_search(q)
         self.clear()
         self.mods(mods)
+
+    def mod_selected(self,event,file):
+        print(file)
+        if self.selected_mod != "":
+            self.mod_frame_2[self.selected_mod].configure(fg_color="#D3D3D3")
+        self.mod_frame_2[file].configure(fg_color="#808080")
+        self.selected_mod = file
 
     def frame_clicked(self,event,mod_url):
         new = ModVersions(self,self.master,mod_url,self.master.selected_version.lower())

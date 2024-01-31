@@ -194,6 +194,8 @@ class MainWindow(customtkinter.CTk):
         with open("client.json","w") as file:
             json.dump(self.json,file,indent=2)
 
+        self.save_update()
+
         thread = threading.Thread(target=self.open_launcher)
         thread.start()
 
