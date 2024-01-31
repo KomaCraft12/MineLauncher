@@ -131,7 +131,7 @@ class ModVersions(customtkinter.CTkToplevel):
     def __init__(self,master,master_old,mod_url,modpack_version):
         super().__init__(master)
         self.title("MineCraft")
-        self.geometry('500x700')
+        self.geometry('500x750')
         self.resizable(False, False)
         self.configure(fg_color="#8B4513")
         self.master_old = master_old
@@ -227,6 +227,9 @@ class ModVersions(customtkinter.CTkToplevel):
                     if bytes_downloaded % (10240000) == 0:
                         self.download_progress(bytes_downloaded, total_size)
 
+        self.progressbar.set(1)
+        self.progress.configure(text=f'Sikeresen letöltve: '+self.files)
+
     def download_progress(self, bytes_downloaded, total_size):
         progress = (bytes_downloaded / total_size) * 100
         self.file.configure(text="Fájl: "+self.files)
@@ -248,6 +251,11 @@ class ModsView(customtkinter.CTkToplevel):
 
         self.scrollable_frame = customtkinter.CTkScrollableFrame(self, height=500, width=608, fg_color="#CD853F")
         self.scrollable_frame_2 = customtkinter.CTkScrollableFrame(self, height=500, width=608, fg_color="#CD853F")
+
+        if not(os.path.exists("modpacks/"+master.selected_version.lower()+"/mods-disabled")):
+            os.mkdir("modpacks/"+master.selected_version.lower()+"/mods-disabled")
+        if not(os.path.exists("modpacks/"+master.selected_version.lower()+"/mods")):
+            os.mkdir("modpacks/"+master.selected_version.lower()+"/mods")
 
         files = list(os.listdir(os.path.join("modpacks/"+master.selected_version.lower()+"/mods")))
         files2 = list(os.listdir(os.path.join("modpacks/"+master.selected_version.lower()+"/mods-disabled")))
@@ -400,6 +408,16 @@ class ModsView(customtkinter.CTkToplevel):
     def mod_remove(self):
         print("remove: "+self.selected_mod)
         self.clear()
+        if os.path.isfile("modpacks/" + self.master.selected_version.lower() + "/mods/"+self.selected_mod):
+            try:
+                os.remove("modpacks/" + self.master.selected_version.lower() + "/mods/"+self.selected_mod)
+            except:
+                pass
+        else:
+            try:
+                os.remove("modpacks/" + self.master.selected_version.lower() + "/mods-disabled/" + self.selected_mod)
+            except:
+                pass
         files = list(os.listdir(os.path.join("modpacks/" + self.master.selected_version.lower() + "/mods")))
         files2 = list(os.listdir(os.path.join("modpacks/" + self.master.selected_version.lower() + "/mods-disabled")))
         self.list_installed_mod(files,"enabled")
@@ -549,6 +567,12 @@ class ModpackDownload(customtkinter.CTkToplevel):
                 "gameDirector": os.getcwd() + "\\modpacks\\" + dir_name,
                 "icon": self.modpacks[self.key][2]
             }
+
+        try:
+            os.mkdir(os.getcwd() + "\\modpacks\\" + dir_name + "\\mods-disabled")
+            os.mkdir(os.getcwd() + "\\modpacks\\" + dir_name + "\\mods")
+        except Exception:
+            pass
         with open("versions.json", "w") as file:
             file.write(json.dumps(version_list, indent=2))
 
@@ -704,6 +728,13 @@ class ForgeModpack(customtkinter.CTkToplevel):
         game_director = os.getcwd()+"\\modpacks\\"+dir_name
 
         version = self.selected_version if self.isforge.get() == "off" else self.selected_forge_version.replace("-","-forge-")
+
+        if self.isforge.get() == "on":
+            try:
+                os.mkdir(game_director + "\\mods-disabled")
+                os.mkdir(game_director + "\\mods")
+            except Exception:
+                pass
 
         with open("versions.json","r") as file:
             version_list = json.loads(file.read())
@@ -923,6 +954,13 @@ class MainWindow(customtkinter.CTk):
 
         title = ""
 
+        for widget in self.button_frame.winfo_children():
+            widget.destroy()
+        self.button_open_website = customtkinter.CTkButton(self.button_frame, text="Webhely", fg_color="green",
+                                                           command=self.open_modpack_website)
+        self.mods_button = customtkinter.CTkButton(self.button_frame, text="Modok", fg_color="green",
+                                                   command=self.open_mod_viewer)
+
         self.clear_news()
         response = requests.get("https://minecraft.komaweb.eu/modpacks/" + keys.lower() + "/news/news.json")
         if response.status_code == 200:
@@ -940,18 +978,11 @@ class MainWindow(customtkinter.CTk):
             with open("versions.json", "r") as file:
                 versions = json.loads(file.read())
 
-            for widget in self.button_frame.winfo_children():
-                widget.destroy()
-
-            self.button_open_website = customtkinter.CTkButton(self.button_frame, text="Webhely", fg_color="green",command=self.open_modpack_website)
-            self.mods_button = customtkinter.CTkButton(self.button_frame, text="Modok", fg_color="green",command=self.open_mod_viewer)
-
             if "forge" in versions[self.selected_version]["version"]:
                 # -after, -anchor, -before, -expand, -fill, -in, -ipadx, -ipady, -padx, -pady, or -side
-                self.button_open_website.grid(row=0, column=0,padx=10,pady=10)
+                #self.button_open_website.grid(row=0, column=0,padx=10,pady=10)
                 self.mods_button.grid(row=0,column=1,padx=10,pady=10)
-            else:
-                self.button_open_website.grid(row=0, column=0,padx=10,pady=10)
+            self.button_open_website.grid(row=0, column=0,padx=10,pady=10)
 
 
             if versions[self.selected_version]["icon"] != "":
@@ -989,6 +1020,14 @@ class MainWindow(customtkinter.CTk):
 
 
         else:
+
+            with open("versions.json", "r") as file:
+                versions = json.loads(file.read())
+
+            if "forge" in versions[self.selected_version]["version"]:
+                # -after, -anchor, -before, -expand, -fill, -in, -ipadx, -ipady, -padx, -pady, or -side
+                #self.button_open_website.grid(row=0, column=0,padx=10,pady=10)
+                self.mods_button.grid(row=0,column=1,padx=10,pady=10)
 
             print("Nem létezik")
 

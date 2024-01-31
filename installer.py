@@ -165,7 +165,7 @@ class MainWindow(customtkinter.CTk):
         self.json = {}
         self.json["client_id"] = str(uuid.uuid4())
 
-        self.lastid = database.insert("INSERT INTO clients (`client_id`,`version`) VALUES (%(client_id)s, %(version)s)",{"client_id":self.json["client_id"],"version":1})
+        self.lastid = database.insert("INSERT INTO clients (`client_id`,`version`) VALUES (%(client_id)s, %(version)s)",{"client_id":self.json["client_id"],"version": self.latest_version[0][1]})
         self.json["id"] = self.lastid
         self.json["version"] = self.latest_version[0][1]
 
